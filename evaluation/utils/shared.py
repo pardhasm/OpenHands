@@ -5,8 +5,9 @@ import os
 import pathlib
 import subprocess
 import time
-from concurrent.futures import ProcessPoolExecutor
-from typing import Any, Awaitable, Callable
+import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Any, Awaitable, Callable, TextIO
 
 import pandas as pd
 from pydantic import BaseModel
@@ -227,6 +228,61 @@ def prepare_dataset(
     return pd.DataFrame(new_dataset)
 
 
+def update_progress(
+    result: EvalOutput,
+    pbar: tqdm,
+    output_fp: TextIO,
+):
+    """Update the progress bar and write the result to the output file."""
+    pbar.update(1)
+    pbar.set_description(f'Instance {result.instance_id}')
+    pbar.set_postfix_str(f'Test Result: {result.test_result}')
+    logger.info(
+        f'Finished evaluation for instance {result.instance_id}: {str(result.test_result)[:300]}...\n'
+    )
+    output_fp.write(json.dumps(result.model_dump()) + '\n')
+    output_fp.flush()
+
+
+def _process_instance_wrapper(
+    process_instance_func: Callable[[pd.Series, EvalMetadata, bool], EvalOutput],
+    instance: pd.Series,
+    metadata: EvalMetadata,
+    use_mp: bool,
+    max_retries: int = 5,
+) -> EvalOutput:
+    """Wrap the process_instance_func to handle retries and errors.
+
+    Retry an instance up to max_retries times if it fails (e.g., due to transient network/runtime issues).
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            result = process_instance_func(instance, metadata, use_mp)
+            return result
+        except Exception as e:
+            if attempt == max_retries:
+                # Raise an error after all retries & stop the evaluation
+                raise RuntimeError(
+                    f'Maximum error retries reached for instance {instance.instance_id}'
+                ) from e
+            error = str(e)
+            stacktrace = traceback.format_exc()
+            msg = (
+                '-' * 10
+                + '\n'
+                + f'Error in instance [{instance.instance_id}]: {error}. Stacktrace:\n{stacktrace}'
+                + '\n'
+                + '-' * 10
+                + '[This error occurred after maximum retries]'
+                + '-' * 10
+                + '\n'
+            )
+            logger.error(msg)
+            if use_mp:
+                print(msg)  # use print to directly print to console
+            time.sleep(1)  # Add a small delay before retrying
+
+
 def run_evaluation(
     dataset: pd.DataFrame,
     metadata: EvalMetadata,
@@ -235,48 +291,45 @@ def run_evaluation(
     process_instance_func: Callable[
         [pd.Series, EvalMetadata, bool], Awaitable[EvalOutput]
     ],
+    max_retries: int = 5,  # number of retries for each instance
 ):
     use_multiprocessing = num_workers > 1
     logger.info(
         f'Evaluation started with Agent {metadata.agent_class}:\n'
         f'model {metadata.llm_config.model}, max iterations {metadata.max_iterations}.\n'
     )
-    pbar = tqdm(total=len(dataset))
+
+    total_instances = len(dataset)
+    pbar = tqdm(total=total_instances, desc='Instances processed')
     output_fp = open(output_file, 'a')
-
-    def update_progress(future):
-        pbar.update(1)
-        output: EvalOutput = future.result() if use_multiprocessing else future
-
-        pbar.set_description(f'Instance {output.instance_id}')
-        pbar.set_postfix_str(f'Test Result: {output.test_result}')
-        logger.info(
-            f'Finished evaluation for instance {output.instance_id}: {str(output.test_result)[:300]}...\n'
-        )
-        output_fp.write(json.dumps(output.model_dump()) + '\n')
-        output_fp.flush()
 
     try:
         if use_multiprocessing:
             with ProcessPoolExecutor(num_workers) as executor:
-                futures = []
-                for _, instance in dataset.iterrows():
-                    future = executor.submit(
-                        process_instance_func,
-                        instance,
-                        metadata,
-                        bool(num_workers > 1),
+                futures = [
+                    executor.submit(
+                        _process_instance_wrapper,
+                        process_instance_func=process_instance_func,
+                        instance=instance,
+                        metadata=metadata,
+                        use_mp=True,
+                        max_retries=max_retries,
                     )
-                    future.add_done_callback(update_progress)
-                    futures.append(future)
-                for future in futures:
-                    future.result()
-        # Use plain for loop for single process for easier debugging
+                    for _, instance in dataset.iterrows()
+                ]
+                for future in as_completed(futures):
+                    result = future.result()
+                    update_progress(result, pbar, output_fp)
         else:
-            assert num_workers == 1
             for _, instance in dataset.iterrows():
-                output = process_instance_func(instance, metadata, False)
-                update_progress(output)
+                result = _process_instance_wrapper(
+                    process_instance_func=process_instance_func,
+                    instance=instance,
+                    metadata=metadata,
+                    use_mp=False,
+                    max_retries=max_retries,
+                )
+                update_progress(result, pbar, output_fp)
 
     except KeyboardInterrupt:
         print('\nKeyboardInterrupt received. Cleaning up...\n')

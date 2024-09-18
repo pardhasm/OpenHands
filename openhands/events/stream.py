@@ -91,6 +91,7 @@ class EventStream:
         start_id=None,
         end_id=None,
         reverse=False,
+        include_delegates=False,
         filter_out_types: tuple[type[Event], ...] | None = None,
     ) -> Iterable[Event]:
         """
@@ -130,7 +131,7 @@ class EventStream:
                     continue
 
                 # Filter out delegate events
-                if any(
+                if not include_delegates and any(
                     delegate_start < event.id < delegate_end
                     for delegate_start, (
                         _,
@@ -180,7 +181,7 @@ class EventStream:
             event._id = self._cur_id  # type: ignore [attr-defined]
             self._cur_id += 1
         logger.debug(f'Adding {type(event).__name__} id={event.id} from {source.name}')
-        event._timestamp = datetime.now()  # type: ignore [attr-defined]
+        event._timestamp = datetime.now().isoformat()
         event._source = source  # type: ignore [attr-defined]
         data = event_to_dict(event)
         if event.id is not None:
@@ -300,9 +301,9 @@ class EventStream:
                 return True
         return False
 
-    def get_events_as_list(self) -> list[Event]:
+    def get_events_as_list(self, include_delegates: bool = False) -> list[Event]:
         """Return the history as a list of Event objects."""
-        return list(self.get_events())
+        return list(self.get_events(include_delegates=include_delegates))
 
     # history is now available as a filtered stream of events, rather than list of pairs of (Action, Observation)
     # we rebuild the pairs here
