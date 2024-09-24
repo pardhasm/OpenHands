@@ -2,6 +2,7 @@ import os
 import tempfile
 import threading
 import uuid
+from typing import Callable, Optional
 from zipfile import ZipFile
 
 import requests
@@ -55,6 +56,7 @@ class RemoteRuntime(Runtime):
         sid: str = 'default',
         plugins: list[PluginRequirement] | None = None,
         env_vars: dict[str, str] | None = None,
+        status_message_callback: Optional[Callable] = None,
     ):
         self.config = config
         if self.config.sandbox.api_hostname == 'localhost':
@@ -168,7 +170,9 @@ class RemoteRuntime(Runtime):
         )
 
         # Initialize the eventstream and env vars
-        super().__init__(config, event_stream, sid, plugins, env_vars)
+        super().__init__(
+            config, event_stream, sid, plugins, env_vars, status_message_callback
+        )
 
         logger.info(
             f'Runtime initialized with plugins: {[plugin.name for plugin in self.plugins]}'
@@ -197,6 +201,8 @@ class RemoteRuntime(Runtime):
             # because the runtime might just be starting up
             # and have not registered the endpoint yet
             retry_fns=[is_404_error],
+            # leave enough time for the runtime to start up
+            timeout=600,
         )
         if response.status_code != 200:
             msg = f'Runtime is not alive yet (id={self.runtime_id}). Status: {response.status_code}.'

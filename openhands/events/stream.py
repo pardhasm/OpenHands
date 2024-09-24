@@ -21,6 +21,7 @@ from openhands.events.observation.commands import CmdOutputObservation
 from openhands.events.observation.delegate import AgentDelegateObservation
 from openhands.events.observation.empty import NullObservation
 from openhands.events.serialization.event import event_from_dict, event_to_dict
+from openhands.runtime.utils.shutdown_listener import should_continue
 from openhands.storage import FileStore
 
 
@@ -123,6 +124,10 @@ class EventStream:
         )
 
         for event_id in event_range:
+            # check if we're shutting down
+            if not should_continue():
+                break
+
             try:
                 event = self.get_event(event_id)
 
