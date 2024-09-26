@@ -261,7 +261,11 @@ class AgentController:
 
         # Initialize the delegate entry with end_id as None
         # end id = -1 means that the delegate has not ended yet
-        self.state.delegates[delegate_start] = (delegate_agent, delegate_task, -1)
+        self.event_stream.delegates[delegate_start] = (
+            delegate_agent,
+            delegate_task,
+            -1,
+        )
         logger.debug(
             f'Delegate {delegate_agent} with task {delegate_task} started at id={delegate_start}'
         )
@@ -275,9 +279,9 @@ class AgentController:
             delegate_agent,
             delegate_task,
             _,
-        ) in self.state.delegates.items():
-            if self.state.delegates[delegate_start][2] == -1:
-                self.state.delegates[delegate_start] = (
+        ) in self.event_stream.delegates.items():
+            if self.event_stream.delegates[delegate_start][2] == -1:
+                self.event_stream.delegates[delegate_start] = (
                     delegate_agent,
                     delegate_task,
                     delegate_end,
@@ -293,8 +297,7 @@ class AgentController:
 
     def reset_task(self):
         """Resets the agent's task."""
-
-        self.almost_stuck = 0
+        self.state.almost_stuck = False
         self.agent.reset()
 
     async def set_agent_state_to(self, new_state: AgentState):
@@ -606,9 +609,6 @@ class AgentController:
             logger.debug(
                 f'AgentController {self.id} restoring from event {self.state.start_id}'
             )
-
-        # Set the state in the event stream
-        self.event_stream.set_state(self.state)
 
     def _is_stuck(self):
         """Checks if the agent or its delegate is stuck in a loop.

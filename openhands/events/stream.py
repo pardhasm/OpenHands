@@ -4,7 +4,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Callable, ClassVar, Iterable
 
-from openhands.controller.state.state import State
 from openhands.core.logger import openhands_logger as logger
 from openhands.core.utils import json
 from openhands.events.action.action import Action
@@ -37,7 +36,6 @@ class EventStreamSubscriber(str, Enum):
 class EventStream:
     sid: str
     file_store: FileStore
-    state: State | None
     # For each subscriber ID, there is a stack of callback functions - useful
     # when there are agent delegates
     _subscribers: dict[str, list[Callable]]
@@ -49,18 +47,16 @@ class EventStream:
         ChangeAgentStateAction,
         AgentStateChangedObservation,
     )
+    delegates: dict[int, tuple[str, str, int]]
 
     def __init__(self, sid: str, file_store: FileStore):
         self.sid = sid
         self.file_store = file_store
-        self.state = None
         self._subscribers = {}
         self._cur_id = 0
         self._lock = threading.Lock()
+        self.delegates = {}
         self._reinitialize_from_file_store()
-
-    def set_state(self, state: State):
-        self.state = state
 
     def _reinitialize_from_file_store(self) -> None:
         try:
@@ -99,21 +95,24 @@ class EventStream:
         Retrieve events from the stream, optionally filtering out certain event types and delegate events.
 
         Args:
-            start_id: The starting event ID. Defaults to the state's start_id or 0.
-            end_id: The ending event ID. Defaults to the state's end_id or the latest event.
+            start_id: The starting event ID. Defaults to 0.
+            end_id: The ending event ID. Defaults to the latest event.
             reverse: Whether to iterate in reverse order. Defaults to False.
             filter_out_types: Event types to filter out. Defaults to the built-in filter_out.
 
         Yields:
             Event: Events from the stream that match the criteria.
         """
-        if self.state is None:
-            raise ValueError('State has not been set for EventStream')
 
-        if start_id is None:
-            start_id = self.state.start_id if self.state.start_id != -1 else 0
-        if end_id is None:
-            end_id = self.state.end_id if self.state.end_id != -1 else self._cur_id - 1
+        # if start_id is None:
+        #    start_id = self.state.start_id if self.state.start_id != -1 else 0
+        # if end_id is None:
+        #    end_id = self.state.end_id if self.state.end_id != -1 else self._cur_id - 1
+
+        # start_id and end_id are necessary for delegates' events
+        # TODO: replace with first action and last observation
+        start_id = 0 if start_id is None else start_id
+        end_id = self._cur_id - 1 if end_id is None else end_id
 
         exclude_types = (
             filter_out_types if filter_out_types is not None else self.filter_out
@@ -138,11 +137,7 @@ class EventStream:
                 # Filter out delegate events
                 if not include_delegates and any(
                     delegate_start < event.id < delegate_end
-                    for delegate_start, (
-                        _,
-                        _,
-                        delegate_end,
-                    ) in self.state.delegates.items()
+                    for delegate_start, (_, _, delegate_end) in self.delegates.items()
                 ):
                     continue
 
@@ -210,12 +205,8 @@ class EventStream:
 
     def get_last_action(self, end_id: int = -1) -> Action | None:
         """Return the last action from the event stream, filtered to exclude unwanted events."""
-        if self.state is None:
-            raise ValueError('State has not been set for EventStream')
 
-        end_id = end_id if end_id != -1 else self.state.end_id
-        if end_id == -1:
-            end_id = self._cur_id - 1
+        end_id = end_id if end_id != -1 else self._cur_id - 1
 
         last_action = next(
             (
@@ -230,12 +221,8 @@ class EventStream:
 
     def get_last_observation(self, end_id: int = -1) -> Observation | None:
         """Return the last observation from the event stream, filtered to exclude unwanted events."""
-        if self.state is None:
-            raise ValueError('State has not been set for EventStream')
 
-        end_id = end_id if end_id != -1 else self.state.end_id
-        if end_id == -1:
-            end_id = self._cur_id - 1
+        end_id = end_id if end_id != -1 else self._cur_id - 1
 
         last_observation = next(
             (

@@ -25,7 +25,6 @@ def test_basic_flow(temp_dir: str):
     file_store = get_file_store('local', temp_dir)
     state = State()  # Create a State instance
     event_stream = EventStream('abc', file_store)
-    event_stream.set_state(state)
     event_stream.add_event(NullAction(), EventSource.AGENT)
     assert len(collect_events(event_stream)) == 1
 
