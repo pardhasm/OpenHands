@@ -113,7 +113,7 @@ class AgentController:
         self._initial_max_budget_per_task = max_budget_per_task
 
         # stuck helper
-        self._stuck_detector = StuckDetector(self.state)
+        self._stuck_detector = StuckDetector(self.event_stream)
 
     async def close(self):
         """Closes the agent controller, canceling any ongoing tasks and unsubscribing from the event stream."""
@@ -297,7 +297,6 @@ class AgentController:
 
     def reset_task(self):
         """Resets the agent's task."""
-        self.state.almost_stuck = False
         self.agent.reset()
 
     async def set_agent_state_to(self, new_state: AgentState):
@@ -387,7 +386,9 @@ class AgentController:
         agent_config = self.agent_configs.get(action.agent, self.agent.config)
         llm_config = self.agent_to_llm_config.get(action.agent, self.agent.llm.config)
         llm = LLM(config=llm_config)
-        delegate_agent = agent_cls(llm=llm, config=agent_config)
+        delegate_agent = agent_cls(
+            llm=llm, config=agent_config, event_stream=self.event_stream
+        )
         state = State(
             inputs=action.inputs or {},
             local_iteration=0,

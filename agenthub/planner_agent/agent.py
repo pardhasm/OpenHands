@@ -5,6 +5,7 @@ from openhands.controller.state.state import State
 from openhands.core.config import AgentConfig
 from openhands.core.message import ImageContent, Message, TextContent
 from openhands.events.action import Action, AgentFinishAction
+from openhands.events.stream import EventStream
 from openhands.llm.llm import LLM
 
 
@@ -16,13 +17,13 @@ class PlannerAgent(Agent):
     """
     response_parser = PlannerResponseParser()
 
-    def __init__(self, llm: LLM, config: AgentConfig):
+    def __init__(self, llm: LLM, config: AgentConfig, event_stream: EventStream):
         """Initialize the Planner Agent with an LLM
 
         Parameters:
         - llm (LLM): The llm to be used by this agent
         """
-        super().__init__(llm, config)
+        super().__init__(llm, config, event_stream)
 
     def step(self, state: State) -> Action:
         """Checks to see if current step is completed, returns AgentFinishAction if True.

@@ -23,6 +23,7 @@ from openhands.events.observation import (
 from openhands.events.observation.error import ErrorObservation
 from openhands.events.observation.observation import Observation
 from openhands.events.serialization.event import truncate_content
+from openhands.events.stream import EventStream
 from openhands.llm.llm import LLM
 from openhands.runtime.plugins import (
     AgentSkillsRequirement,
@@ -66,13 +67,14 @@ class CodeActSWEAgent(Agent):
         self,
         llm: LLM,
         config: AgentConfig,
+        event_stream: EventStream,
     ) -> None:
         """Initializes a new instance of the CodeActSWEAgent class.
 
         Parameters:
         - llm (LLM): The llm to be used by this agent
         """
-        super().__init__(llm, config)
+        super().__init__(llm, config, event_stream)
         self.reset()
 
     def action_to_str(self, action: Action) -> str:
@@ -154,7 +156,7 @@ class CodeActSWEAgent(Agent):
         - AgentFinishAction() - end the interaction
         """
         # if we're done, go back
-        latest_user_message = state.history.get_last_user_message()
+        latest_user_message = self.event_stream.get_last_user_message()
         if latest_user_message and latest_user_message.strip() == '/exit':
             return AgentFinishAction()
 
@@ -177,7 +179,7 @@ class CodeActSWEAgent(Agent):
             Message(role='user', content=[TextContent(text=self.in_context_example)]),
         ]
 
-        for event in state.history.get_events():
+        for event in self.event_stream.get_events():
             # create a regular message from an event
             if isinstance(event, Action):
                 message = self.get_action_message(event)

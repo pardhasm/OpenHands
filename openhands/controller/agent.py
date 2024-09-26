@@ -5,6 +5,7 @@ if TYPE_CHECKING:
     from openhands.controller.state.state import State
     from openhands.core.config import AgentConfig
     from openhands.events.action import Action
+    from openhands.events.stream import EventStream
 from openhands.core.exceptions import (
     AgentAlreadyRegisteredError,
     AgentNotRegisteredError,
@@ -29,9 +30,11 @@ class Agent(ABC):
         self,
         llm: LLM,
         config: 'AgentConfig',
+        event_stream: 'EventStream',
     ):
         self.llm = llm
         self.config = config
+        self.event_stream = event_stream
         self._complete = False
 
     @property

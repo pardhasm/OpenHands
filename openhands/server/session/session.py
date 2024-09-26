@@ -103,7 +103,9 @@ class Session:
 
         llm = LLM(config=self.config.get_llm_config_from_agent(agent_cls))
         agent_config = self.config.get_agent_config(agent_cls)
-        agent = Agent.get_cls(agent_cls)(llm, agent_config)
+        agent = Agent.get_cls(agent_cls)(
+            llm, agent_config, self.agent_session.event_stream
+        )
 
         # Create the agent session
         try:

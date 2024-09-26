@@ -26,6 +26,7 @@ from openhands.events.observation import (
     Observation,
 )
 from openhands.events.serialization.event import event_to_dict
+from openhands.events.stream import EventStream
 from openhands.llm.llm import LLM
 
 """
@@ -46,8 +47,8 @@ class DummyAgent(Agent):
     without making any LLM calls.
     """
 
-    def __init__(self, llm: LLM, config: AgentConfig):
-        super().__init__(llm, config)
+    def __init__(self, llm: LLM, config: AgentConfig, event_stream: EventStream):
+        super().__init__(llm, config, event_stream)
         self.steps: list[ActionObs] = [
             {
                 'action': AddTaskAction(
@@ -164,7 +165,9 @@ class DummyAgent(Agent):
 
             if 'observations' in prev_step and prev_step['observations']:
                 expected_observations = prev_step['observations']
-                hist_events = state.history.get_last_events(len(expected_observations))
+                hist_events = self.event_stream.get_last_events(
+                    len(expected_observations)
+                )
 
                 if len(hist_events) < len(expected_observations):
                     print(

@@ -18,6 +18,7 @@ from openhands.events.action import (
 from openhands.events.event import EventSource
 from openhands.events.observation import BrowserOutputObservation
 from openhands.events.observation.observation import Observation
+from openhands.events.stream import EventStream
 from openhands.llm.llm import LLM
 from openhands.runtime.plugins import (
     PluginRequirement,
@@ -104,13 +105,14 @@ class BrowsingAgent(Agent):
         self,
         llm: LLM,
         config: AgentConfig,
+        event_stream: EventStream,
     ) -> None:
         """Initializes a new instance of the BrowsingAgent class.
 
         Parameters:
         - llm (LLM): The llm to be used by this agent
         """
-        super().__init__(llm, config)
+        super().__init__(llm, config, event_stream)
         # define a configurable action space, with chat functionality, web navigation, and webpage grounding using accessibility tree and HTML.
         # see https://github.com/ServiceNow/BrowserGym/blob/main/core/src/browsergym/core/action/highlevel.py for more details
         action_subsets = ['chat', 'bid']
@@ -150,13 +152,13 @@ class BrowsingAgent(Agent):
         last_obs = None
         last_action = None
 
-        if EVAL_MODE and len(state.history.get_events_as_list()) == 1:
+        if EVAL_MODE and len(self.event_stream.get_events_as_list()) == 1:
             # for webarena and miniwob++ eval, we need to retrieve the initial observation already in browser env
             # initialize and retrieve the first observation by issuing an noop OP
             # For non-benchmark browsing, the browser env starts with a blank page, and the agent is expected to first navigate to desired websites
             return BrowseInteractiveAction(browser_actions='noop()')
 
-        for event in state.history.get_events():
+        for event in self.event_stream.get_events():
             if isinstance(event, BrowseInteractiveAction):
                 prev_actions.append(event.browser_actions)
                 last_action = event

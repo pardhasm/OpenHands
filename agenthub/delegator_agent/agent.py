@@ -3,6 +3,7 @@ from openhands.controller.state.state import State
 from openhands.core.config import AgentConfig
 from openhands.events.action import Action, AgentDelegateAction, AgentFinishAction
 from openhands.events.observation import AgentDelegateObservation
+from openhands.events.stream import EventStream
 from openhands.llm.llm import LLM
 
 
@@ -14,13 +15,15 @@ class DelegatorAgent(Agent):
 
     current_delegate: str = ''
 
-    def __init__(self, llm: LLM, config: AgentConfig):
-        """Initialize the Delegator Agent with an LLM
+    def __init__(self, llm: LLM, config: AgentConfig, event_stream: EventStream):
+        """Initialize the Delegator Agent with an LLM and an event stream
 
         Parameters:
-        - llm (LLM): The llm to be used by this agent
+        - llm: The llm to be used by this agent
+        - config: The config for this agent
+        - event_stream: The event stream to be used by this agent
         """
-        super().__init__(llm, config)
+        super().__init__(llm, config, event_stream)
 
     def step(self, state: State) -> Action:
         """Checks to see if current step is completed, returns AgentFinishAction if True.
@@ -41,7 +44,7 @@ class DelegatorAgent(Agent):
             )
 
         # last observation in history should be from the delegate
-        last_observation = state.history.get_last_observation()
+        last_observation = self.event_stream.get_last_observation()
 
         if not isinstance(last_observation, AgentDelegateObservation):
             raise Exception('Last observation is not an AgentDelegateObservation')

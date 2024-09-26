@@ -104,6 +104,16 @@ async def run_controller(
             (could be None) and returns a fake user response.
         headless_mode: Whether the agent is run in headless mode.
     """
+
+    # make sure the session id is set
+    sid = sid or generate_sid(config)
+
+    # the runtime creates the event stream, so start here
+    if runtime is None:
+        runtime = create_runtime(config, sid=sid)
+
+    event_stream = runtime.event_stream
+
     # Create the agent
     if agent is None:
         agent_cls: Type[Agent] = Agent.get_cls(config.default_agent)
@@ -112,15 +122,9 @@ async def run_controller(
         agent = agent_cls(
             llm=LLM(config=llm_config),
             config=agent_config,
+            event_stream=event_stream,
         )
 
-    # make sure the session id is set
-    sid = sid or generate_sid(config)
-
-    if runtime is None:
-        runtime = create_runtime(config, sid=sid)
-
-    event_stream = runtime.event_stream
     # restore cli session if enabled
     initial_state = None
     if config.enable_cli_session:
