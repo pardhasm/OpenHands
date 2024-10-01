@@ -3,7 +3,6 @@ import json
 import pytest
 from pytest import TempPathFactory
 
-from openhands.controller.state.state import State
 from openhands.events import EventSource, EventStream
 from openhands.events.action import (
     NullAction,
@@ -23,7 +22,6 @@ def collect_events(stream):
 
 def test_basic_flow(temp_dir: str):
     file_store = get_file_store('local', temp_dir)
-    state = State()  # Create a State instance
     event_stream = EventStream('abc', file_store)
     event_stream.add_event(NullAction(), EventSource.AGENT)
     assert len(collect_events(event_stream)) == 1
