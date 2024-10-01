@@ -1,10 +1,12 @@
-from agenthub.planner_agent.prompt import get_prompt_and_images
+from agenthub.planner_agent.prompt import HISTORY_SIZE, get_prompt
 from agenthub.planner_agent.response_parser import PlannerResponseParser
 from openhands.controller.agent import Agent
 from openhands.controller.state.state import State
 from openhands.core.config import AgentConfig
 from openhands.core.message import ImageContent, Message, TextContent
+from openhands.core.utils import json
 from openhands.events.action import Action, AgentFinishAction
+from openhands.events.serialization.event import event_to_memory
 from openhands.events.stream import EventStream
 from openhands.llm.llm import LLM
 
@@ -43,12 +45,50 @@ class PlannerAgent(Agent):
         ]:
             return AgentFinishAction()
 
-        prompt, image_urls = get_prompt_and_images(
-            state, self.llm.config.max_message_chars
+        # the goal (user-defined task)
+        task, image_urls = self.event_stream.get_current_user_intent()
+
+        # we will need the last action for the hint
+        last_action = self.event_stream.get_last_action()
+
+        # get history as a string to insert into the prompt
+        history_str = self._get_history_str()
+
+        # format the prompt
+        prompt = get_prompt(
+            state, task, last_action, history_str, self.llm.config.max_message_chars
         )
+
+        # create the message
         content = [TextContent(text=prompt)]
         if self.llm.vision_is_active() and image_urls:
             content.append(ImageContent(image_urls=image_urls))
         message = Message(role='user', content=content)
+
+        # sent to the LLM and return the action
         resp = self.llm.completion(messages=self.llm.format_messages_for_llm(message))
         return self.response_parser.parse(resp)
+
+    def _get_history_str(self) -> str:
+        """
+        Get the history string from the event stream.
+        """
+
+        # the history
+        history_dicts = []
+
+        # retrieve the latest HISTORY_SIZE events
+        for event_count, event in enumerate(self.event_stream.get_events(reverse=True)):
+            if event_count >= HISTORY_SIZE:
+                break
+            history_dicts.append(
+                event_to_memory(event, self.llm.config.max_message_chars)
+            )
+
+        # history_dicts is in reverse order, lets fix it
+        history_dicts.reverse()
+
+        # and get it as a JSON string
+        history_str = json.dumps(history_dicts, indent=2)
+
+        return history_str

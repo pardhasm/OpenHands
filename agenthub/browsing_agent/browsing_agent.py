@@ -203,7 +203,7 @@ class BrowsingAgent(Agent):
                 )
                 return MessageAction('Error encountered when browsing.')
 
-        goal, _ = state.get_current_user_intent()
+        goal, _ = self.event_stream.get_current_user_intent()
 
         if goal is None:
             goal = state.inputs['task']

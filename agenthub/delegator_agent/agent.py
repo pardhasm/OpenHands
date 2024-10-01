@@ -38,7 +38,7 @@ class DelegatorAgent(Agent):
         """
         if self.current_delegate == '':
             self.current_delegate = 'study'
-            task, _ = state.get_current_user_intent()
+            task, _ = self.event_stream.get_current_user_intent()
             return AgentDelegateAction(
                 agent='StudyRepoForTaskAgent', inputs={'task': task}
             )
@@ -49,7 +49,7 @@ class DelegatorAgent(Agent):
         if not isinstance(last_observation, AgentDelegateObservation):
             raise Exception('Last observation is not an AgentDelegateObservation')
 
-        goal, _ = state.get_current_user_intent()
+        goal, _ = self.event_stream.get_current_user_intent()
         if self.current_delegate == 'study':
             self.current_delegate = 'coder'
             return AgentDelegateAction(
