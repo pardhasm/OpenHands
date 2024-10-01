@@ -16,8 +16,8 @@ def temp_dir(tmp_path_factory: TempPathFactory) -> str:
     return str(tmp_path_factory.mktemp('test_event_stream'))
 
 
-def collect_events(stream):
-    return [event for event in stream.get_events()]
+def collect_events(stream: EventStream):
+    return [event for event in stream.get_events(filter_out_types=())]
 
 
 def test_basic_flow(temp_dir: str):

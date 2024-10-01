@@ -19,8 +19,8 @@ from openhands.events.stream import EventSource, EventStream
 from openhands.storage import get_file_store
 
 
-def collect_events(stream):
-    return [event for event in stream.get_events()]
+def collect_events(stream: EventStream):
+    return [event for event in stream.get_events(filter_out_types=())]
 
 
 logging.basicConfig(level=logging.DEBUG)
