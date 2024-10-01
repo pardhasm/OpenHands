@@ -1,5 +1,5 @@
 import asyncio
-
+import concurrent.futures
 from threading import Thread
 from typing import Callable, Optional
 
@@ -32,6 +32,7 @@ class AgentSession:
     runtime: Runtime | None = None
     security_analyzer: SecurityAnalyzer | None = None
     _closed: bool = False
+    loop: asyncio.AbstractEventLoop
 
     def __init__(self, sid: str, file_store: FileStore):
         """Initializes a new instance of the Session class
@@ -44,6 +45,7 @@ class AgentSession:
         self.sid = sid
         self.event_stream = EventStream(sid, file_store)
         self.file_store = file_store
+        self.loop = asyncio.new_event_loop()
 
     async def start(
         self,
@@ -71,14 +73,32 @@ class AgentSession:
                 'Session already started. You need to close this session and start a new one.'
             )
 
-        self.loop = asyncio.new_event_loop()
         self.thread = Thread(target=self._run, daemon=True)
         self.thread.start()
 
-        coro = self._start(runtime_name, config, agent, max_iterations, max_budget_per_task, agent_to_llm_config, agent_configs, status_message_callback)
-        asyncio.run_coroutine_threadsafe(coro, self.loop) # type: ignore
+        def coro_callback(task):
+            fut: concurrent.futures.Future = concurrent.futures.Future()
+            try:
+                fut.set_result(task.result())
+            except Exception as e:
+                logger.error(f'Error starting session: {e}')
 
-    async def _start(self,
+        coro = self._start(
+            runtime_name,
+            config,
+            agent,
+            max_iterations,
+            max_budget_per_task,
+            agent_to_llm_config,
+            agent_configs,
+            status_message_callback,
+        )
+        asyncio.run_coroutine_threadsafe(coro, self.loop).add_done_callback(
+            coro_callback
+        )  # type: ignore
+
+    async def _start(
+        self,
         runtime_name: str,
         config: AppConfig,
         agent: Agent,
@@ -102,8 +122,8 @@ class AgentSession:
             ChangeAgentStateAction(AgentState.INIT), EventSource.USER
         )
         if self.controller:
-            self.controller.agent_task = self.controller.start_step_loop()   
-            await self.controller.agent_task # type: ignore
+            self.controller.agent_task = self.controller.start_step_loop()
+            await self.controller.agent_task  # type: ignore
 
     def _run(self):
         asyncio.set_event_loop(self.loop)
@@ -162,13 +182,17 @@ class AgentSession:
         logger.info(f'Initializing runtime `{runtime_name}` now...')
         runtime_cls = get_runtime_cls(runtime_name)
 
-        self.runtime = runtime_cls(
-            config=config,
-            event_stream=self.event_stream,
-            sid=self.sid,
-            plugins=agent.sandbox_plugins,
-            status_message_callback=status_message_callback,
-        )
+        try:
+            self.runtime = runtime_cls(
+                config=config,
+                event_stream=self.event_stream,
+                sid=self.sid,
+                plugins=agent.sandbox_plugins,
+                status_message_callback=status_message_callback,
+            )
+        except Exception as e:
+            logger.error(f'Runtime initialization failed: {e}')
+            raise
 
         if self.runtime is not None:
             logger.debug(

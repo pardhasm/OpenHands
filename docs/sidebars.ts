@@ -74,6 +74,10 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'usage/how-to/github-action',
+        },
+        {
+          type: 'doc',
           id: 'usage/how-to/custom-sandbox-guide',
         },
         {
@@ -83,6 +87,10 @@ const sidebars: SidebarsConfig = {
         {
           type: 'doc',
           id: 'usage/how-to/openshift-example',
+        },
+        {
+          type: 'doc',
+          id: 'usage/how-to/debugging',
         }
       ]
     },

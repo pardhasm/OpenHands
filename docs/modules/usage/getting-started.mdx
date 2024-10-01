@@ -18,6 +18,8 @@ existing code that you'd like to modify.
 ```bash
 export WORKSPACE_BASE=$(pwd)/workspace
 
+docker pull ghcr.io/all-hands-ai/runtime:0.9-nikolaik
+
 docker run -it --pull=always \
     -e SANDBOX_RUNTIME_CONTAINER_IMAGE=ghcr.io/all-hands-ai/runtime:0.9-nikolaik \
     -e SANDBOX_USER_ID=$(id -u) \
@@ -30,8 +32,7 @@ docker run -it --pull=always \
     ghcr.io/all-hands-ai/openhands:0.9
 ```
 
-You can also run OpenHands in a scriptable [headless mode](https://docs.all-hands.dev/modules/usage/how-to/headless-mode),
-or as an [interactive CLI](https://docs.all-hands.dev/modules/usage/how-to/cli-mode).
+You can also run OpenHands in a scriptable [headless mode](https://docs.all-hands.dev/modules/usage/how-to/headless-mode), as an [interactive CLI](https://docs.all-hands.dev/modules/usage/how-to/cli-mode), or using the [OpenHands GitHub Action](https://docs.all-hands.dev/modules/usage/how-to/github-action).
 
 ## Setup
 
@@ -54,7 +55,7 @@ The `Advanced Options` also allow you to specify a `Base URL` if required.
 
 ## Versions
 
-The command above pulls the `0.9` tag, which represents the most recent stable release of OpenHands. You have other options as well:
+The command above pulls the most recent stable release of OpenHands. You have other options as well:
 - For a specific release, use `ghcr.io/all-hands-ai/openhands:$VERSION`, replacing $VERSION with the version number.
 - We use semver, and release major, minor, and patch tags. So `0.9` will automatically point to the latest `0.9.x` release, and `0` will point to the latest `0.x.x` release.
 - For the most up-to-date development version, you can use `ghcr.io/all-hands-ai/openhands:main`. This version is unstable and is recommended for testing or development purposes only.
