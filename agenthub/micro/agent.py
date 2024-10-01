@@ -32,16 +32,14 @@ class MicroAgent(Agent):
     prompt = ''
     agent_definition: dict = {}
 
-    def history_to_json(
-        self, event_stream: EventStream, max_events: int = 20, **kwargs
-    ):
+    def history_to_json(self, max_events: int = 20, **kwargs):
         """
         Serialize and simplify history to str format
         """
         processed_history = []
         event_count = 0
 
-        for event in event_stream.get_events(reverse=True):
+        for event in self.event_stream.get_events(reverse=True):
             if event_count >= max_events:
                 break
             processed_history.append(
