@@ -17,7 +17,6 @@ from openhands.events.observation.commands import IPythonRunCellObservation
 from openhands.events.observation.empty import NullObservation
 from openhands.events.observation.error import ErrorObservation
 from openhands.events.stream import EventSource, EventStream
-from openhands.memory.history import ShortTermHistory
 from openhands.storage import get_file_store
 
 
@@ -576,7 +575,6 @@ class TestAgentController:
         )
         controller.delegate = None
         controller.state = Mock()
-        controller.state.history = ShortTermHistory()
         return controller
 
     def test_is_stuck_delegate_stuck(self, controller: AgentController):
