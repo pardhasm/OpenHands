@@ -151,6 +151,10 @@ class AppConfig(metaclass=Singleton):
         sandbox_timeout: The timeout for the sandbox.
         debug: Whether to enable debugging.
         enable_auto_lint: Whether to enable auto linting. This is False by default, for regular runs of the app. For evaluation, please set this to True.
+        render_base_url: Base url of render.com API
+        render_api_key: Render.com API key
+        sandbox_image: Sandbox image t deply to render.com
+        service_name_prefix: Service name to search in render.com, if not found, redeploys the service.
     """
 
     llm: LLMConfig = field(default_factory=LLMConfig)
@@ -187,7 +191,10 @@ class AppConfig(metaclass=Singleton):
     enable_auto_lint: bool = (
         False  # once enabled, OpenDevin would lint files after editing
     )
-
+    render_base_url: str = ''
+    render_api_key: str = ''
+    sandbox_image: str = ''
+    service_name_prefix: str = ''
     defaults_dict: ClassVar[dict] = {}
 
     def __post_init__(self):
